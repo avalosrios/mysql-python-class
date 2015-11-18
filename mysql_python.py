@@ -45,7 +45,7 @@ class MysqlPython(object):
         self.__connection.close()
     ## End def __close
 
-    def select(self, table, where=None, *args, **kwargs):
+    def select(self, table, filters={},  *args, **kwargs):
         result = None
         query = 'SELECT '
         keys = args
@@ -60,20 +60,25 @@ class MysqlPython(object):
 
         query += 'FROM %s' % table
 
-        if where:
-            query += " WHERE %s" % where
-        ## End if where
+        filters_str = ["%s = %s" % (key, filters[key]) for key in filters]
+        query += " WHERE %s" % " AND ".join(filters_str)
 
-        self.__open()
-        self.__session.execute(query, values)
-        number_rows = self.__session.rowcount
-        number_columns = len(self.__session.description)
+        # TODO add group, order, and limit capabilities
 
-        if number_rows >= 1 and number_columns > 1:
-            result = [item for item in self.__session.fetchall()]
+        try:  # Need to handle connection errors
+            self.__open()
+            self.__session.execute(query, values)
+            number_rows = self.__session.rowcount
+            number_columns = len(self.__session.description)
+
+            if number_rows >= 1 and number_columns > 1:
+                result = [item for item in self.__session.fetchall()]
+            else:
+                result = [item[0] for item in self.__session.fetchall()]
+        except:  # Probably change this to more specific errors such as DB timeouts
+            raise
         else:
-            result = [item[0] for item in self.__session.fetchall()]
-        self.__close()
+            self.__close()
 
         return result
     ## End def select
